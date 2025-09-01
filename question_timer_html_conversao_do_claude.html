@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Timer de Questões</title>
+  <style>
+    :root{
+      --bg: #0f172a; /* slate-900 */
+      --panel: #111827; /* gray-900 */
+      --soft: #0b1220;
+      --fg: #e5e7eb; /* gray-200 */
+      --muted: #94a3b8; /* slate-400 */
+      --blue: #3b82f6;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --purple: #8b5cf6;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    *{ box-sizing:border-box }
+    html, body { height: 100%; }
+    body{
+      margin:0; font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 800px at 10% 10%, #0b1220 0%, var(--bg) 60%);
+      color: var(--fg);
+      display:flex; align-items:center; justify-content:center; padding: 18px;
+    }
+    .wrap{ width:min(1000px, 96vw); }
+    .card{ background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow); padding: 20px; }
+    .title{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 14px; }
+    .title h1{ margin:0; font-size:20px; letter-spacing:.2px; }
+
+    .timer{ text-align:center; padding: 10px 6px; }
+    .big{ font-variant-numeric: tabular-nums; font-size:min(16vw, 96px); font-weight:800; letter-spacing:1.2px; }
+    .sub{ color:var(--muted); font-size:13px; }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:center; }
+    .btn{ cursor:pointer; border:0; border-radius:14px; padding:11px 16px; font-weight:700; background:#1f2937; color:#e5e7eb; transition: transform .03s ease, filter .15s; }
+    .btn:hover{ filter:brightness(1.07); }
+    .btn:active{ transform: translateY(1px); }
+    .primary{ background: var(--green); color:#052d15; }
+    .warn{ background: var(--amber); color:#1c1606; }
+    .danger{ background: var(--red); }
+    .ghost{ background:transparent; border:1px solid #334155; }
+    .blue{ background: var(--blue); }
+    .purple{ background: var(--purple); }
+
+    .input{ width:min(520px, 92vw); background:var(--soft); border:1px solid #1f2937; color:var(--fg); border-radius:12px; padding:10px 12px; font-weight:600; }
+
+    .grid{ display:grid; gap:12px; grid-template-columns: 1fr; }
+
+    .stats{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; }
+    .stat{ background:var(--soft); border-radius:12px; padding:12px; text-align:center; }
+    .stat .v{ font-variant-numeric: tabular-nums; font-size:20px; font-weight:800; }
+    .stat .k{ font-size:11px; color:var(--muted); }
+
+    .panel{ background:var(--soft); border-radius:12px; border:1px solid #1f2937; overflow:hidden; }
+    .panel .hd{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #1f2937; }
+
+    table{ width:100%; border-collapse:collapse; font-size:14px; }
+    th, td{ padding:10px 8px; text-align:left; }
+    thead th{ color:var(--muted); font-weight:700; background:#0e1729; }
+    tbody tr:nth-child(even){ background:rgba(255,255,255,.02); }
+
+    .chip{ display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; font-weight:700 }
+    .chip.ok{ background:rgba(34,197,94,.15); color:#86efac; border:1px solid rgba(34,197,94,.35); }
+    .chip.no{ background:rgba(239,68,68,.15); color:#fca5a5; border:1px solid rgba(239,68,68,.35); }
+    .chip.na{ background:rgba(148,163,184,.18); color:#cbd5e1; border:1px dashed rgba(148,163,184,.45); }
+
+    .actions{ display:flex; gap:6px; }
+    .iconbtn{ cursor:pointer; border:0; border-radius:10px; padding:6px 9px; font-weight:800; }
+    .iconbtn.ok{ background:rgba(34,197,94,.14); color:#86efac; }
+    .iconbtn.no{ background:rgba(239,68,68,.14); color:#fca5a5; }
+    .iconbtn.del{ background:transparent; border:1px solid #334155; color:#94a3b8; }
+
+    .hint{ color:var(--muted); font-size:12px; text-align:center; margin-top:8px; }
+
+    .hide{ display:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card grid">
+      <div class="title">
+        <h1>Timer de Questões</h1>
+        <div class="sub">Standalone • pronto para /embed no Notion</div>
+      </div>
+
+      <div class="timer">
+        <div class="big" id="display">00:00</div>
+        <div class="row" style="margin:10px 0 6px">
+          <input id="qname" class="input" type="text" placeholder="Nome da questão (opcional)" />
+        </div>
+        <div class="row">
+          <button class="btn primary" id="startPause">Iniciar</button>
+          <button class="btn danger" id="finish" disabled>Finalizar</button>
+          <button class="btn blue" id="toggleStats">Mostrar detalhes</button>
+          <button class="btn purple" id="export">Exportar JSON</button>
+        </div>
+        <div class="hint">Atalhos: espaço = iniciar/pausar • Enter = finalizar • D = detalhes</div>
+      </div>
+
+      <div class="grid">
+        <div class="stats">
+          <div class="stat"><div class="v" id="s_totalQ">0</div><div class="k">Questões</div></div>
+          <div class="stat"><div class="v" id="s_totalT">00:00</div><div class="k">Tempo total</div></div>
+          <div class="stat"><div class="v" id="s_avg">00:00</div><div class="k">Tempo médio</div></div>
+          <div class="stat"><div class="v" id="s_acc">0.0%</div><div class="k">Taxa de acerto</div></div>
+        </div>
+
+        <div class="panel" id="details" class="hide">
+          <div class="hd"><div>Histórico de Questões</div></div>
+          <div style="max-height:360px; overflow:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Questão</th>
+                  <th>Tempo</th>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="hint">Dica: incorpore essa página no Notion com <b>/embed</b>. Publique em qualquer host (Vercel/Netlify/GitHub Pages/Apption) e cole a URL.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --------- util ---------
+    const $ = (s)=>document.querySelector(s);
+    const pad = (n)=>String(n).padStart(2,'0');
+    const fmt = (sec)=>{ sec=Math.max(0, Math.floor(sec)); const m=Math.floor(sec/60), s=sec%60; return `${pad(m)}:${pad(s)}`; };
+
+    // --------- state ---------
+    let time = 0;        // em segundos
+    let running = false;
+    let timerId = null;
+    let sessions = [];   // lista de {id, question, timeInSeconds, formattedTime, timestamp, correct}
+    let showDetails = false;
+
+    // tentar restaurar do localStorage (não obrigatório, mas útil)
+    try{ const sv = JSON.parse(localStorage.getItem('qt_sessions')||'[]'); if(Array.isArray(sv)) sessions = sv; }catch(e){}
+
+    // --------- core timer ---------
+    function tick(){ time++; renderTimer(); }
+    function start(){ if(running) return; running=true; timerId = setInterval(tick, 1000); $('#startPause').textContent = 'Pausar'; $('#finish').disabled = false; }
+    function pause(){ if(!running) return; running=false; clearInterval(timerId); $('#startPause').textContent = 'Iniciar'; }
+    function toggle(){ running? pause(): start(); }
+    function finish(){ if(time<=0) return; pause();
+      const q = $('#qname').value.trim();
+      const item = { id: Date.now(), question: q || `Questão ${sessions.length+1}`, timeInSeconds: time, formattedTime: fmt(time), timestamp: new Date().toLocaleString('pt-BR'), correct: null };
+      sessions.push(item); time=0; $('#qname').value=''; renderTimer(); renderTable(); renderStats(); persist(); }
+
+    function renderTimer(){ $('#display').textContent = fmt(time); $('#finish').disabled = (time===0); }
+
+    function persist(){ try{ localStorage.setItem('qt_sessions', JSON.stringify(sessions)); }catch(e){} }
+
+    // --------- stats ---------
+    function calcStats(){ if(sessions.length===0) return {totalQ:0,totalTime:0,avg:0,accuracy:0,correct:0,answered:0};
+      const totalTime = sessions.reduce((s,x)=>s+x.timeInSeconds,0);
+      const avg = totalTime / sessions.length;
+      const answered = sessions.filter(s=>s.correct!==null);
+      const correct = sessions.filter(s=>s.correct===true).length;
+      const accuracy = answered.length? (correct/answered.length)*100 : 0;
+      return { totalQ: sessions.length, totalTime, avg, accuracy, correct, answered: answered.length };
+    }
+    function renderStats(){ const st = calcStats();
+      $('#s_totalQ').textContent = st.totalQ;
+      $('#s_totalT').textContent = fmt(st.totalTime);
+      $('#s_avg').textContent = fmt(Math.round(st.avg));
+      $('#s_acc').textContent = (st.accuracy||0).toFixed(1)+'%';
+    }
+
+    // --------- table ---------
+    function renderTable(){ const tb = $('#tbody'); tb.innerHTML='';
+      const arr = [...sessions].slice().reverse();
+      arr.forEach((s,idx)=>{
+        const tr = document.createElement('tr');
+        const status = s.correct===true? '<span class="chip ok">Correto</span>' : s.correct===false? '<span class="chip no">Errado</span>' : '<span class="chip na">N/A</span>';
+        tr.innerHTML = `
+          <td>${arr.length-idx}</td>
+          <td>${escapeHtml(s.question)}</td>
+          <td style="font-variant-numeric:tabular-nums; font-weight:700">${s.formattedTime}</td>
+          <td>${s.timestamp}</td>
+          <td>${status}</td>
+          <td class="actions">
+            <button class="iconbtn ok" data-act="ok" data-id="${s.id}">✓</button>
+            <button class="iconbtn no" data-act="no" data-id="${s.id}">✗</button>
+            <button class="iconbtn del" data-act="del" data-id="${s.id}">Excluir</button>
+          </td>`;
+        tb.appendChild(tr);
+      });
+    }
+    function escapeHtml(str){ return str.replace(/[&<>"']/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s])); }
+
+    $('#tbody').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return; const id = +btn.dataset.id; const act = btn.dataset.act; const i = sessions.findIndex(x=>x.id===id); if(i<0) return;
+      if(act==='ok') sessions[i].correct = true; else if(act==='no') sessions[i].correct = false; else if(act==='del') sessions.splice(i,1);
+      renderTable(); renderStats(); persist();
+    });
+
+    // --------- export ---------
+    function exportJSON(){ const st = calcStats();
+      const data = { sessions: sessions.map(s=>({ Questao:s.question, "Tempo (min:seg)":s.formattedTime, "Tempo (segundos)":s.timeInSeconds, Data:s.timestamp, Acertou: s.correct===true? 'Sim' : s.correct===false? 'Não' : 'N/A' })), estatisticas: { totalQuestoes: st.totalQ, tempoTotal: fmt(st.totalTime), tempoMedio: fmt(Math.round(st.avg)), taxaAcerto: +(st.accuracy||0).toFixed(1), corretas: st.correct, respondidas: st.answered } };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download = `timer-questoes-${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove();}, 0);
+    }
+
+    // --------- UI events ---------
+    $('#startPause').onclick = toggle;
+    $('#finish').onclick = finish;
+    $('#toggleStats').onclick = ()=>{ showDetails = !showDetails; $('#details').classList.toggle('hide', !showDetails); $('#toggleStats').textContent = showDetails? 'Ocultar detalhes' : 'Mostrar detalhes'; };
+    $('#export').onclick = exportJSON;
+
+    // teclado: espaço inicia/pausa; Enter finaliza; D detalhes
+    window.addEventListener('keydown', (e)=>{
+      if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName)){
+        // permitir espaço no input de nome
+        if(e.code==='Space') return;
+      }
+      if(e.code==='Space'){ e.preventDefault(); toggle(); }
+      if(e.code==='Enter'){ e.preventDefault(); finish(); }
+      if(e.key.toLowerCase()==='d'){ $('#toggleStats').click(); }
+    });
+
+    // init
+    renderTimer(); renderStats(); renderTable();
+  </script>
+</body>
+</html>
